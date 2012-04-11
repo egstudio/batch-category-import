@@ -1,11 +1,10 @@
 <?php
 /*
-Plugin Name: Batch Category Import 
-Plugin URI: N/A
-Version: v1.0
+Plugin Name: Batch Category Import
+Version: v1.0.1
 Author: Guy Maliar
 Author URI: http://www.egstudio.biz/
-Description: This is a plug-in allowing the user to create large amount of categories on the fly. This is based on the discontinued http://wordpress.org/extend/plugins/category-import/.
+Description: This is a plug-in allowing the user to create large amount of categories on the fly.
 */
 
 if(!class_exists("CategoryImport")) {
@@ -17,22 +16,24 @@ if(!class_exists("CategoryImport")) {
 			
 			$category_tree = explode('/', $line);
 
-			foreach($category_tree as $category) {						
+			foreach($category_tree as $category) {
 				if (strlen(trim($category)) == 0)
-					return false;
+					break;
 				
 				if (strpos($category, $delimiter) !== false) {
 					$category = explode($delimiter, $category);
 					$category_name = $category[0];
 					$category_slug = $category[1];
+					$category_description = (isset($category[2]) ? substr($category[2], 1, -1) : '');
 				}
 				else {
 					$category_name = $category;
 					$category_slug = $category;
+					$category_description = '';
 				}
 				
 				$existing_category = term_exists($category_name, 'category');
-
+				
 				if (is_array($existing_category))
 					$parent_id = ((Int) $existing_category['term_id']);
 				else if ($existing_category) {
@@ -40,15 +41,15 @@ if(!class_exists("CategoryImport")) {
 				}
 				else if ($existing_category == false) {
 					$category_params = array(
-						'description'	=> '',
+						'description'	=> $category_description,
 						'slug'		 	=> $category_slug,
 						'parent' 		=> (isset($parent_id) ? $parent_id : 0)
 						);
 						
-					$parent_id = wp_insert_term($category_name, 'category', $category_params);
+					$result = wp_insert_term($category_name, 'category', $category_params);
 
-					if (is_wp_error($parent_id))
-						return die("$catname produced this -> ".$parent_id->get_error_message());
+					if (is_wp_error($result))
+						return die("$catname produced this -> ".$result->get_error_message());
 		
 					$created_categories[] = $category_name;
 				}
@@ -67,23 +68,21 @@ if(!class_exists("CategoryImport")) {
 				foreach($textarea as $line) {
 					$result[] = $this->create_category($line ,$delimiter);
 				}
-				
-				if (!$result)
-					$status = "Couldn't create categories: Textarea empty.";
-				else if (empty($result))
-					$status = "Couldn't create categories: Categories already created.";
-				else
-					$status = "Created the following categories: ";
-
-				echo "<div id='message' class='updated fade'><p><strong>$status</strong><br />";
-				if (isset($result)) {
-					foreach ($result as $categories_created) {
-						foreach ($categories_created as $category)
-							echo $category.'<br />';
+				echo "<div id='message' class='updated fade'><p><strong>Request returned with the following result: </strong><br />";
+				$response = "";
+				foreach ($result as $line => $categories_created) {
+					if (!$categories_created || empty($categories_created))
+						$response .= "#$line Could not create category.<br />";
+					else {
+						$response .= "#$line Created: ";
+						foreach ($categories_created as $category) {
+							$response .= "$category ";
+						}
+						$response .= "<br />";
 					}
 				}
-				echo "</p></div>";
-					
+				echo $response;
+				echo "</p></div>";					
 			}
 			
 			wp_enqueue_script('jquery');
@@ -108,7 +107,7 @@ if(!class_exists("CategoryImport")) {
 
 			<span class="example">Example : Level A / Level B$level-b1 / Level C$level-c1</span>
 
-			<textarea id="bulkCategoryList" name="bulkCategoryList" rows="20" style="width: 80%;"></textarea>
+			<textarea id="bulkCategoryList" name="bulkCategoryList" rows="20" style="width: 80%;"><?php echo (isset($_POST['bulkCategoryList']) ? $_POST['bulkCategoryList'] : ''); ?></textarea>
 			<br/>
 
 			<div id="displayTreeView" name="displayTreeView" style="display:none;">

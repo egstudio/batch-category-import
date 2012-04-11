@@ -1,10 +1,10 @@
 === Batch categories import ===
-Contributors: guymaliar (this should be a list of wordpress.org userid's)
+Contributors: guymaliar
 Donate link: 
-Tags: category
+Tags: category, import 
 Requires at least: 3.3.1
 Tested up to: 3.3.1
-Stable tag: trunk
+Stable tag: 1.0.1
 
 This is a plug-in allowing the user to create large amount of categories on the fly.
 
@@ -64,6 +64,12 @@ e.g. :
 
 * Category A$foo / Category B$bar / Category C$cool-isnt-it
 
+= What about adding descriptions? =
+
+Easy, just add another dollar-sign '$' delimiter after the category slug and wrap your description with double-quotes "". e.g. :
+
+* Category A$foo$"this is bar!"
+
 = And if I don't like your silly dollar-sign delimiter? =
 
 Just change it!
@@ -73,3 +79,4 @@ Just one notice: currently it is impossible to user the back-slash '/' as a deli
 == Screenshots ==
 
 == Changelog ==
+v1.0.1 - Added support for comments by making a third dollar-sign '$' in the category string.
