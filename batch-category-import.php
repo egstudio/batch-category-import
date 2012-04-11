@@ -11,63 +11,79 @@ Description: This is a plug-in allowing the user to create large amount of categ
 if(!class_exists("CategoryImport")) {
 	class CategoryImport{
 
-		private function create_category($catname, $catslug, $parent_id) {
+		private function create_category($line, $delimiter) {
+			
+			$created_categories = array();
+			
+			$category_tree = explode('/', $line);
 
-			$cat = get_term_by('slug', $catslug, 'category');
-
-			if (!empty($cat->term_id)) 
-				return $cat->term_id;
-
-			if (empty($cat->term_id)) {	
-				$catarr = array(
-					'description'	=> '',
-					'slug'		 	=> $catslug,
-					'parent' 		=> $parent_id
-					);
-
-				$ids = wp_insert_term($catname, 'category', $catarr);
+			foreach($category_tree as $category) {						
+				if (strlen(trim($category)) == 0)
+					return false;
 				
-				return $ids['term_taxonomy_id'];
+				if (strpos($category, $delimiter) !== false) {
+					$category = explode($delimiter, $category);
+					$category_name = $category[0];
+					$category_slug = $category[1];
+				}
+				else {
+					$category_name = $category;
+					$category_slug = $category;
+				}
+				
+				$existing_category = term_exists($category_name, 'category');
+
+				if (is_array($existing_category))
+					$parent_id = ((Int) $existing_category['term_id']);
+				else if ($existing_category) {
+					$parent_id = $existing_category;
+				}
+				else if ($existing_category == false) {
+					$category_params = array(
+						'description'	=> '',
+						'slug'		 	=> $category_slug,
+						'parent' 		=> (isset($parent_id) ? $parent_id : 0)
+						);
+						
+					$parent_id = wp_insert_term($category_name, 'category', $category_params);
+
+					if (is_wp_error($parent_id))
+						return die("$catname produced this -> ".$parent_id->get_error_message());
+		
+					$created_categories[] = $category_name;
+				}
 			}
+			
+			return $created_categories;
 		}
 		
 		public function form() {
 
 			if(isset($_POST['submit'])) {
-				$delimiter = strlen(trim($_POST['delimiter'])) != 0 ? $_POST['delimiter']:"$";
-				$lines = explode(PHP_EOL, $_POST['bulkCategoryList']);
-				foreach($lines as $line) {
-					$split_line = explode('/',$line);
-					foreach($split_line as $new_line) {
-						if (strlen(trim($new_line)) == 0)
-							break;
-						if (strpos($new_line, $delimiter) !== false) {
-							$cat_name_slug = explode($delimiter, $new_line);
-							$cat_name = $cat_name_slug[0];
-							$cat_slug = $cat_name_slug[1];
-						} 
-						else {
-							$cat_name = $new_line;
-							$cat_slug = $new_line;
-						}
-						
-						if (isset($parent_id))
-							$parent_id = $this->create_category($cat_name, $cat_slug, $parent_id);
-						else
-							$parent_id = $this->create_category($cat_name, $cat_slug, 0);
-						
-						if ($parent_id == 0) {
-							$error = true;
-							break 2;
-						}
-					}
-					$parent_id = null;
+				$delimiter = strlen(trim($_POST['delimiter'])) != 0 ? $_POST['delimiter'] : "$";
+				
+				$textarea = explode(PHP_EOL, $_POST['bulkCategoryList']);
+				
+				foreach($textarea as $line) {
+					$result[] = $this->create_category($line ,$delimiter);
 				}
 				
-				if (isset($error))
-					echo '<div id="message" class="updated fade"><p><strong>Exception happened !! Please check your input data !! </strong></p></div>';
+				if (!$result)
+					$status = "Couldn't create categories: Textarea empty.";
+				else if (empty($result))
+					$status = "Couldn't create categories: Categories already created.";
 				else
-					echo '<div id="message" class="updated fade"><p><strong>Import successully finished!! </strong></p></div>';
+					$status = "Created the following categories: ";
+
+				echo "<div id='message' class='updated fade'><p><strong>$status</strong><br />";
+				if (isset($result)) {
+					foreach ($result as $categories_created) {
+						foreach ($categories_created as $category)
+							echo $category.'<br />';
+					}
+				}
+				echo "</p></div>";
+					
 			}
 			
 			wp_enqueue_script('jquery');
@@ -117,20 +133,10 @@ function admin_import_menu() {
 
 	if (class_exists("CategoryImport")) {
 		$dl_categoryImport = new CategoryImport();
-		add_submenu_page("edit.php", 'Category Import', 'Category Import', 'manage_options', __FILE__, array($dl_categoryImport, 'form'));
+		add_submenu_page("edit.php", 'Batch Category Import', 'Batch Category Import', 'manage_options', __FILE__, array($dl_categoryImport, 'form'));
 	}
 }
 
-function order_category_by_id($terms, $taxonomies, $args) {
-
-	if ($taxonomies[0] == "category" && $args['orderby'] == 'name')
-		$terms = get_categories(array('hide_empty' => 0,'orderby' => 'id'));
-
-	return $terms;
-}
-
 add_action('admin_menu', 'admin_import_menu');
-
-add_filter('get_terms', 'order_category_by_id', 10, 3);
 
 ?>
